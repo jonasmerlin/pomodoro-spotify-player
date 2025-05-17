@@ -475,7 +475,7 @@ const SpotifyPomodoroPlayer: React.FC = () => {
   }, [token]);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl shadow-md">
+    <div className="p-6 max-w-5xl mx-auto bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl shadow-md my-4">
       <h1 className="text-3xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-indigo-600">
         Spotify Pomodoro Player
       </h1>
