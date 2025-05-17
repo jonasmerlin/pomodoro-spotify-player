@@ -1,37 +1,88 @@
 import React, { useState, useEffect, useRef } from "react";
 
+// TypeScript interfaces
+interface SpotifyImage {
+  url: string;
+  height?: number;
+  width?: number;
+}
+
+interface SpotifyArtist {
+  name: string;
+  id: string;
+}
+
+interface SpotifyAlbum {
+  name: string;
+  id: string;
+  images: SpotifyImage[];
+}
+
+interface SpotifyTrack {
+  id: string;
+  name: string;
+  artists: SpotifyArtist[];
+  album?: SpotifyAlbum;
+}
+
+interface SpotifyPlaybackState {
+  device?: {
+    id: string;
+    name: string;
+    type: string;
+  };
+  is_playing?: boolean;
+  item?: SpotifyTrack;
+  message?: string; // For "No active device found" message
+}
+
+interface SpotifyUserProfile {
+  id: string;
+  display_name: string;
+  email: string;
+  images?: SpotifyImage[];
+}
+
+interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token: string;
+  scope: string;
+}
+
 // Main component for Spotify PKCE Auth with Pomodoro Timer
-const SpotifyPomodoroPlayer = () => {
+const SpotifyPomodoroPlayer: React.FC = () => {
   // Spotify Auth States
-  const [token, setToken] = useState(null);
-  const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [userInfo, setUserInfo] = useState(null);
-  const [playbackState, setPlaybackState] = useState(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [userInfo, setUserInfo] = useState<SpotifyUserProfile | null>(null);
+  const [playbackState, setPlaybackState] = useState<SpotifyPlaybackState | null>(null);
 
   // Pomodoro States
-  const [workMinutes, setWorkMinutes] = useState(25);
-  const [breakMinutes, setBreakMinutes] = useState(5);
-  const [totalPomodoros, setTotalPomodoros] = useState(4);
-  const [currentPomodoro, setCurrentPomodoro] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isWorking, setIsWorking] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [timerComplete, setTimerComplete] = useState(false);
+  const [workMinutes, setWorkMinutes] = useState<number>(25);
+  const [breakMinutes, setBreakMinutes] = useState<number>(5);
+  const [totalPomodoros, setTotalPomodoros] = useState<number>(4);
+  const [currentPomodoro, setCurrentPomodoro] = useState<number>(0);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isWorking, setIsWorking] = useState<boolean>(true);
+  const [timeLeft, setTimeLeft] = useState<number>(25 * 60);
+  const [timerComplete, setTimerComplete] = useState<boolean>(false);
 
   // Refs for precise timing
-  const intervalRef = useRef(null);
-  const startTimeRef = useRef(0);
-  const endTimeRef = useRef(0);
-  const isRunningRef = useRef(false);
-  const programmaticChangeRef = useRef(false);
+  const intervalRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const endTimeRef = useRef<number>(0);
+  const isRunningRef = useRef<boolean>(false);
+  const programmaticChangeRef = useRef<boolean>(false);
 
   // Spotify Configuration
-  const CLIENT_ID = "53c4eb5899c84af1ab26e7de292f01a8";
-  const REDIRECT_URI = window.location.origin;
-  const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";
-  const TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
-  const SCOPES = [
+  const CLIENT_ID: string = "53c4eb5899c84af1ab26e7de292f01a8";
+  const REDIRECT_URI: string = window.location.origin;
+  const AUTH_ENDPOINT: string = "https://accounts.spotify.com/authorize";
+  const TOKEN_ENDPOINT: string = "https://accounts.spotify.com/api/token";
+  const SCOPES: string[] = [
     "streaming",
     "user-read-email",
     "user-modify-playback-state",
@@ -57,7 +108,7 @@ const SpotifyPomodoroPlayer = () => {
   }, [timeLeft, isWorking, isRunning, timerComplete]);
 
   // Format time as MM:SS
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs
@@ -71,7 +122,7 @@ const SpotifyPomodoroPlayer = () => {
   }, [isRunning]);
 
   // Generate a random string for code verifier
-  const generateCodeVerifier = (length = 128) => {
+  const generateCodeVerifier = (length: number = 128): string => {
     const possible =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
     let text = "";
@@ -82,7 +133,7 @@ const SpotifyPomodoroPlayer = () => {
   };
 
   // Generate code challenge from verifier
-  const generateCodeChallenge = async (codeVerifier) => {
+  const generateCodeChallenge = async (codeVerifier: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(codeVerifier);
     const digest = await window.crypto.subtle.digest("SHA-256", data);
@@ -94,7 +145,7 @@ const SpotifyPomodoroPlayer = () => {
   };
 
   // Handle login
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
     setIsLoading(true);
 
     // Generate and store PKCE challenge
@@ -115,12 +166,12 @@ const SpotifyPomodoroPlayer = () => {
       window.location.href = authUrl.toString();
     } catch (err) {
       setIsLoading(false);
-      setError("Failed to generate challenge: " + err.message);
+      setError(`Failed to generate challenge: ${(err as Error).message}`);
     }
   };
 
   // Exchange code for token
-  const getToken = async (code) => {
+  const getToken = async (code: string): Promise<string | null> => {
     setIsLoading(true);
 
     try {
@@ -149,19 +200,19 @@ const SpotifyPomodoroPlayer = () => {
         throw new Error("HTTP status " + response.status);
       }
 
-      const data = await response.json();
+      const data = await response.json() as TokenResponse;
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
-      localStorage.setItem("expires_in", data.expires_in);
+      localStorage.setItem("expires_in", data.expires_in.toString());
       localStorage.setItem(
         "expires_at",
-        new Date().getTime() + data.expires_in * 1000
+        (new Date().getTime() + data.expires_in * 1000).toString()
       );
 
       setToken(data.access_token);
       return data.access_token;
     } catch (err) {
-      setError("Failed to get token: " + err.message);
+      setError(`Failed to get token: ${(err as Error).message}`);
       return null;
     } finally {
       setIsLoading(false);
@@ -169,7 +220,7 @@ const SpotifyPomodoroPlayer = () => {
   };
 
   // Get user info
-  const getUserInfo = async (accessToken) => {
+  const getUserInfo = async (accessToken: string): Promise<void> => {
     try {
       const response = await fetch("https://api.spotify.com/v1/me", {
         headers: {
@@ -181,15 +232,15 @@ const SpotifyPomodoroPlayer = () => {
         throw new Error("HTTP status " + response.status);
       }
 
-      const data = await response.json();
+      const data = await response.json() as SpotifyUserProfile;
       setUserInfo(data);
     } catch (err) {
-      setError("Failed to get user info: " + err.message);
+      setError(`Failed to get user info: ${(err as Error).message}`);
     }
   };
 
   // Get playback state
-  const getPlaybackState = async (accessToken) => {
+  const getPlaybackState = async (accessToken: string): Promise<void> => {
     try {
       const response = await fetch("https://api.spotify.com/v1/me/player", {
         headers: {
@@ -206,15 +257,15 @@ const SpotifyPomodoroPlayer = () => {
         throw new Error("HTTP status " + response.status);
       }
 
-      const data = await response.json();
+      const data = await response.json() as SpotifyPlaybackState;
       setPlaybackState(data);
     } catch (err) {
-      setError("Failed to get playback state: " + err.message);
+      setError(`Failed to get playback state: ${(err as Error).message}`);
     }
   };
 
   // Control playback - Play
-  const handlePlay = async () => {
+  const handlePlay = async (): Promise<void> => {
     if (!token) return;
 
     try {
@@ -232,13 +283,13 @@ const SpotifyPomodoroPlayer = () => {
         programmaticChangeRef.current = false;
       }, 1000);
     } catch (err) {
-      setError("Failed to start playback: " + err.message);
+      setError(`Failed to start playback: ${(err as Error).message}`);
       programmaticChangeRef.current = false;
     }
   };
 
   // Control playback - Pause
-  const handlePause = async () => {
+  const handlePause = async (): Promise<void> => {
     if (!token) return;
 
     try {
@@ -256,13 +307,13 @@ const SpotifyPomodoroPlayer = () => {
         programmaticChangeRef.current = false;
       }, 1000);
     } catch (err) {
-      setError("Failed to pause playback: " + err.message);
+      setError(`Failed to pause playback: ${(err as Error).message}`);
       programmaticChangeRef.current = false;
     }
   };
 
   // Pomodoro timer control - Start/pause timer
-  const toggleTimer = () => {
+  const toggleTimer = (): void => {
     if (timerComplete) {
       setIsWorking(true);
       setCurrentPomodoro(0);
@@ -273,7 +324,7 @@ const SpotifyPomodoroPlayer = () => {
   };
 
   // Pomodoro timer control - Reset timer
-  const resetTimer = () => {
+  const resetTimer = (): void => {
     setIsRunning(false);
     setIsWorking(true);
     setCurrentPomodoro(0);
@@ -282,7 +333,7 @@ const SpotifyPomodoroPlayer = () => {
   };
 
   // Set pomodoro preset timings
-  const setPreset = (workMins, breakMins) => {
+  const setPreset = (workMins: number, breakMins: number): void => {
     setWorkMinutes(workMins);
     setBreakMinutes(breakMins);
 
@@ -309,8 +360,10 @@ const SpotifyPomodoroPlayer = () => {
         const now = Date.now();
         const remainingMs = endTimeRef.current - now;
         if (remainingMs <= 0) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           setTimeLeft(0);
 
           // Switch states at end
@@ -365,7 +418,7 @@ const SpotifyPomodoroPlayer = () => {
 
   // Visibility detection to resync timer
   useEffect(() => {
-    const onVisibilityChange = () => {
+    const onVisibilityChange = (): void => {
       if (!document.hidden && isRunning && !timerComplete) {
         // Recalculate endTime based on current time
         const now = Date.now();
