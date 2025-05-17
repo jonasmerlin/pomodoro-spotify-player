@@ -475,13 +475,13 @@ const SpotifyPomodoroPlayer: React.FC = () => {
   }, [token]);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl shadow-md my-4">
-      <h1 className="text-3xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-indigo-600">
+    <div className="p-6 max-w-5xl mx-auto bg-gradient-to-br from-gray-900 to-black rounded-xl shadow-xl my-4 text-gray-200 border border-gray-800">
+      <h1 className="text-3xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-500">
         Spotify Pomodoro Player
       </h1>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded mb-4">
           <strong className="font-bold">Error: </strong>
           <span>{error}</span>
         </div>
@@ -489,19 +489,19 @@ const SpotifyPomodoroPlayer: React.FC = () => {
 
       {isLoading && (
         <div className="flex justify-center my-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
         </div>
       )}
 
       {!token ? (
-        <div className="text-center p-8 bg-white rounded-lg shadow-sm">
-          <p className="mb-4 text-gray-700">
+        <div className="text-center p-8 bg-gray-800 rounded-lg shadow-md">
+          <p className="mb-6 text-gray-300">
             Connect your Spotify account to use this application
           </p>
           <button
             onClick={handleLogin}
             disabled={isLoading}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-all duration-300"
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-50 transition-all duration-300 shadow-md"
           >
             Connect with Spotify
           </button>
@@ -511,8 +511,8 @@ const SpotifyPomodoroPlayer: React.FC = () => {
           {/* Left column: Account info and Pomodoro controls */}
           <div className="lg:col-span-2 space-y-6">
             {/* User Info Card */}
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <h2 className="text-xl font-semibold mb-2 text-gray-800">
+            <div className="bg-gray-800 p-4 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-2 text-gray-100">
                 Account
               </h2>
               {userInfo ? (
@@ -526,8 +526,8 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                       />
                     )}
                     <div>
-                      <p className="font-medium">{userInfo.display_name}</p>
-                      <p className="text-gray-600 text-sm">{userInfo.email}</p>
+                      <p className="font-medium text-white">{userInfo.display_name}</p>
+                      <p className="text-gray-400 text-sm">{userInfo.email}</p>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -542,26 +542,26 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                         setUserInfo(null);
                         setPlaybackState(null);
                       }}
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded text-sm"
+                      className="bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-1 px-3 rounded-full text-sm transition-colors duration-200"
                     >
                       Disconnect
                     </button>
                   </div>
                 </>
               ) : (
-                <p className="text-gray-500">Loading user information...</p>
+                <p className="text-gray-400">Loading user information...</p>
               )}
             </div>
 
             {/* Pomodoro Settings */}
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">
+            <div className="bg-gray-800 p-4 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4 text-gray-100">
                 Pomodoro Settings
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Work Minutes
                   </label>
                   <input
@@ -575,12 +575,12 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                         setTimeLeft(parseInt(e.target.value, 10) * 60);
                       }
                     }}
-                    className="p-2 border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none"
+                    className="p-2 bg-gray-700 border border-gray-600 text-white rounded-lg w-full focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                     disabled={isRunning}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Break Minutes
                   </label>
                   <input
@@ -594,12 +594,12 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                         setTimeLeft(parseInt(e.target.value, 10) * 60);
                       }
                     }}
-                    className="p-2 border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none"
+                    className="p-2 bg-gray-700 border border-gray-600 text-white rounded-lg w-full focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                     disabled={isRunning}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Pomodoros
                   </label>
                   <input
@@ -610,7 +610,7 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                     onChange={(e) =>
                       setTotalPomodoros(parseInt(e.target.value, 10))
                     }
-                    className="p-2 border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none"
+                    className="p-2 bg-gray-700 border border-gray-600 text-white rounded-lg w-full focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                     disabled={isRunning}
                   />
                 </div>
@@ -618,26 +618,26 @@ const SpotifyPomodoroPlayer: React.FC = () => {
 
               {/* Preset buttons */}
               <div className="flex gap-2 flex-wrap">
-                <div className="text-xs text-gray-600 flex items-center">
+                <div className="text-xs text-gray-400 flex items-center">
                   Common Timings:
                 </div>
                 <button
                   onClick={() => setPreset(25, 5)}
-                  className="bg-white border border-indigo-200 text-indigo-700 px-3 py-1 text-sm rounded-md hover:bg-indigo-50 transition-colors duration-200 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="bg-gray-700 border border-gray-600 text-gray-200 px-3 py-1 text-sm rounded-full hover:bg-gray-600 transition-colors duration-200 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={isRunning}
                 >
                   25/5
                 </button>
                 <button
                   onClick={() => setPreset(45, 15)}
-                  className="bg-white border border-indigo-200 text-indigo-700 px-3 py-1 text-sm rounded-md hover:bg-indigo-50 transition-colors duration-200 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="bg-gray-700 border border-gray-600 text-gray-200 px-3 py-1 text-sm rounded-full hover:bg-gray-600 transition-colors duration-200 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={isRunning}
                 >
                   45/15
                 </button>
                 <button
                   onClick={() => setPreset(60, 30)}
-                  className="bg-white border border-indigo-200 text-indigo-700 px-3 py-1 text-sm rounded-md hover:bg-indigo-50 transition-colors duration-200 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="bg-gray-700 border border-gray-600 text-gray-200 px-3 py-1 text-sm rounded-full hover:bg-gray-600 transition-colors duration-200 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={isRunning}
                 >
                   60/30
@@ -650,8 +650,8 @@ const SpotifyPomodoroPlayer: React.FC = () => {
           <div className="lg:col-span-3 space-y-6">
             {/* Timer Display */}
             <div className="w-full mb-4">
-              <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6">
+              <div className="bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 border-b border-gray-700">
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center">
                       <div
@@ -661,43 +661,43 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                       ></div>
                       <span
                         className={`font-medium ${
-                          isWorking ? "text-red-600" : "text-green-600"
+                          isWorking ? "text-red-400" : "text-green-400"
                         }`}
                       >
                         {isWorking ? "WORK SESSION" : "BREAK TIME"}
                       </span>
                     </div>
-                    <div className="bg-white px-4 py-2 rounded-full shadow-sm">
-                      <span className="font-medium text-gray-600">
+                    <div className="bg-gray-900 px-4 py-2 rounded-full shadow-md">
+                      <span className="font-medium text-gray-400">
                         Pomodoro
                       </span>
-                      <span className="ml-2 font-bold text-indigo-700">
+                      <span className="ml-2 font-bold text-green-500">
                         {currentPomodoro + 1}/{totalPomodoros}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-center mb-6">
-                    <span className="text-6xl font-bold text-gray-800 font-mono tracking-wider">
+                    <span className="text-6xl font-bold text-white font-mono tracking-wider">
                       {formatTime(timeLeft)}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex justify-center gap-4 p-4 bg-white">
+                <div className="flex justify-center gap-4 p-4 bg-gray-800">
                   <button
                     onClick={toggleTimer}
-                    className={`px-8 py-3 rounded-lg font-medium shadow-sm transition-all duration-300 ${
+                    className={`px-8 py-3 rounded-full font-medium shadow-md transition-all duration-300 ${
                       isRunning
-                        ? "bg-amber-500 hover:bg-amber-600 text-white"
-                        : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-md text-white"
+                        ? "bg-gray-700 hover:bg-gray-600 text-white"
+                        : "bg-green-500 hover:bg-green-600 text-white"
                     }`}
                   >
                     {isRunning ? "Pause" : timerComplete ? "Restart" : "Start"}
                   </button>
                   <button
                     onClick={resetTimer}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-3 rounded-lg font-medium shadow-sm transition-all duration-300 disabled:opacity-50"
+                    className="bg-gray-700 hover:bg-gray-600 text-gray-200 px-8 py-3 rounded-full font-medium shadow-md transition-all duration-300 disabled:opacity-50"
                     disabled={!isRunning && timeLeft === workMinutes * 60}
                   >
                     Reset
@@ -707,14 +707,14 @@ const SpotifyPomodoroPlayer: React.FC = () => {
             </div>
 
             {/* Current Playback */}
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <h2 className="text-xl font-semibold mb-2 text-gray-800">
+            <div className="bg-gray-800 p-4 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4 text-gray-100">
                 Now Playing
               </h2>
               {playbackState ? (
                 <div>
                   {playbackState.message ? (
-                    <p className="p-6 text-center text-gray-500">
+                    <p className="p-6 text-center text-gray-400">
                       {playbackState.message}
                     </p>
                   ) : (
@@ -726,28 +726,30 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                               <img
                                 src={playbackState.item.album.images[0].url || "/api/placeholder/80/80"}
                                 alt="Album Art"
-                                className="w-20 h-20 mr-4 rounded-md shadow-sm"
+                                className="w-20 h-20 mr-4 rounded-md shadow-md"
                               />
                             )}
                           <div>
-                            <p className="font-medium text-lg">
+                            <p className="font-medium text-lg text-white">
                               {playbackState.item.name}
                             </p>
-                            <p className="text-gray-600">
+                            <p className="text-gray-300">
                               {playbackState.item.artists
                                 .map((artist) => artist.name)
                                 .join(", ")}
                             </p>
-                            <p className="text-gray-500 text-sm mt-1">
+                            <p className="text-gray-400 text-sm mt-1">
                               {playbackState.item.album?.name}
                             </p>
-                            <p className="text-xs mt-2 inline-block px-2 py-1 bg-gray-100 rounded-full">
-                              {playbackState.is_playing ? "Playing" : "Paused"}
+                            <p className="text-xs mt-2 inline-block px-2 py-1 bg-gray-700 rounded-full text-gray-300">
+                              {playbackState.is_playing ? 
+                                <span className="flex items-center"><span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>Playing</span> : 
+                                "Paused"}
                             </p>
                           </div>
                         </div>
                       ) : (
-                        <p className="p-6 text-center text-gray-500">
+                        <p className="p-6 text-center text-gray-400">
                           No track currently playing
                         </p>
                       )}
@@ -755,16 +757,16 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <p className="p-6 text-center text-gray-500">
+                <p className="p-6 text-center text-gray-400">
                   Loading playback information...
                 </p>
               )}
             </div>
 
             {/* Instructions */}
-            <div className="p-4 bg-white rounded-lg shadow-sm border-l-4 border-indigo-500">
-              <p className="text-gray-700">
-                <span className="font-bold text-indigo-700">How it works:</span>{" "}
+            <div className="p-4 bg-gray-800 rounded-lg shadow-md border-l-4 border-green-500">
+              <p className="text-gray-300">
+                <span className="font-bold text-green-400">How it works:</span>{" "}
                 Start playing music on Spotify, then use the Pomodoro timer to
                 manage your work sessions. Music will automatically play during
                 work intervals and pause during breaks.
@@ -774,7 +776,7 @@ const SpotifyPomodoroPlayer: React.FC = () => {
         </div>
       )}
 
-      <div className="mt-8 text-center text-xs text-gray-500">
+      <div className="mt-8 text-center text-xs text-gray-400">
         <p>
           Note: You need to have Spotify Premium to use the playback control
           features.
