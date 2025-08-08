@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+127.0.0.1-key.pem
+127.0.0.1.pem
+
+localhost-key.pem
+localhost.pem
+
+.env

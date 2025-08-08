@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // TypeScript interfaces
 interface SpotifyImage {
@@ -59,6 +59,9 @@ const SpotifyPomodoroPlayer: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [userInfo, setUserInfo] = useState<SpotifyUserProfile | null>(null);
   const [playbackState, setPlaybackState] = useState<SpotifyPlaybackState | null>(null);
+  // Track token expiry in state so we can pre-schedule refreshes
+  // Removed unused tokenExpiry state; we schedule refresh via a ref-managed timeout
+  // const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
 
   // Pomodoro States
   const [workMinutes, setWorkMinutes] = useState<number>(25);
@@ -76,10 +79,13 @@ const SpotifyPomodoroPlayer: React.FC = () => {
   const endTimeRef = useRef<number>(0);
   const isRunningRef = useRef<boolean>(false);
   const programmaticChangeRef = useRef<boolean>(false);
+  const refreshTimeoutRef = useRef<number | null>(null);
+  const timeLeftRef = useRef<number>(25 * 60);
 
   // Spotify Configuration
   const CLIENT_ID: string = "53c4eb5899c84af1ab26e7de292f01a8";
-  const REDIRECT_URI: string = window.location.origin;
+  const DEFAULT_REDIRECT = window.location.protocol === 'https:' ? `https://127.0.0.1:${window.location.port || '5173'}` : `https://127.0.0.1:5173`;
+  const REDIRECT_URI: string = import.meta.env.VITE_REDIRECT_URI || DEFAULT_REDIRECT;
   const AUTH_ENDPOINT: string = "https://accounts.spotify.com/authorize";
   const TOKEN_ENDPOINT: string = "https://accounts.spotify.com/api/token";
   const SCOPES: string[] = [
@@ -116,6 +122,11 @@ const SpotifyPomodoroPlayer: React.FC = () => {
       .padStart(2, "0")}`;
   };
 
+  // Keep a ref in sync with timeLeft to avoid stale values in effects
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
+
   // Update ref when isRunning changes
   useEffect(() => {
     isRunningRef.current = isRunning;
@@ -144,6 +155,71 @@ const SpotifyPomodoroPlayer: React.FC = () => {
       .replace(/\//g, "_");
   };
 
+  // Attempt a refresh_token exchange. Returns true if successful.
+  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
+    const existingRefresh = localStorage.getItem("refresh_token");
+    if (!existingRefresh) return false;
+
+    try {
+      const payload = new URLSearchParams();
+      payload.append("client_id", CLIENT_ID);
+      payload.append("grant_type", "refresh_token");
+      payload.append("refresh_token", existingRefresh);
+
+      const response = await fetch(TOKEN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: payload,
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = (await response.json()) as Partial<TokenResponse> & { expires_in: number; access_token: string };
+
+      // Persist tokens
+      const newExpiresAt = Date.now() + data.expires_in * 1000;
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("expires_in", String(data.expires_in));
+      localStorage.setItem("expires_at", String(newExpiresAt));
+      if (data.refresh_token) {
+        localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      setToken(data.access_token);
+
+      // Schedule next refresh ~60s before expiry
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      const delay = Math.max(5_000, newExpiresAt - Date.now() - 60_000);
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        // Fire and forget; state updates will occur within
+        refreshAccessToken();
+      }, delay);
+
+      return true;
+    } catch (err) {
+      console.error("Failed to refresh token", err);
+      return false;
+    }
+  }, [CLIENT_ID, TOKEN_ENDPOINT]);
+
+  // Centralized helper to ensure we have a valid token before calling Spotify APIs.
+  const getValidAccessToken = useCallback(async (): Promise<string | null> => {
+    const currentToken = localStorage.getItem("access_token");
+    const expiresAtStr = localStorage.getItem("expires_at");
+    const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : null;
+
+    if (currentToken && expiresAt && Date.now() < expiresAt - 5_000) {
+      return currentToken;
+    }
+    // Try to refresh if missing or expired
+    const ok = await refreshAccessToken();
+    return ok ? localStorage.getItem("access_token") : null;
+  }, [refreshAccessToken]);
+
   // Handle login
   const handleLogin = async (): Promise<void> => {
     setIsLoading(true);
@@ -170,8 +246,24 @@ const SpotifyPomodoroPlayer: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("expires_in");
+    localStorage.removeItem("expires_at");
+    localStorage.removeItem("code_verifier");
+    setToken(null);
+    setUserInfo(null);
+    setPlaybackState(null);
+    // setTokenExpiry(null);
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  };
+
   // Exchange code for token
-  const getToken = async (code: string): Promise<string | null> => {
+  const getToken = useCallback(async (code: string): Promise<string | null> => {
     setIsLoading(true);
 
     try {
@@ -200,16 +292,26 @@ const SpotifyPomodoroPlayer: React.FC = () => {
         throw new Error("HTTP status " + response.status);
       }
 
-      const data = await response.json() as TokenResponse;
+      const data = (await response.json()) as TokenResponse;
+
+      // Persist tokens
+      const newExpiresAt = Date.now() + data.expires_in * 1000;
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
-      localStorage.setItem("expires_in", data.expires_in.toString());
-      localStorage.setItem(
-        "expires_at",
-        (new Date().getTime() + data.expires_in * 1000).toString()
-      );
-
+      localStorage.setItem("expires_in", String(data.expires_in));
+      localStorage.setItem("expires_at", String(newExpiresAt));
       setToken(data.access_token);
+
+      // Schedule refresh ~60s before expiry
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      const delay = Math.max(5_000, newExpiresAt - Date.now() - 60_000);
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        refreshAccessToken();
+      }, delay);
+
       return data.access_token;
     } catch (err) {
       setError(`Failed to get token: ${(err as Error).message}`);
@@ -217,10 +319,10 @@ const SpotifyPomodoroPlayer: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [CLIENT_ID, REDIRECT_URI, TOKEN_ENDPOINT, refreshAccessToken]);
 
   // Get user info
-  const getUserInfo = async (accessToken: string): Promise<void> => {
+  const getUserInfo = useCallback(async (accessToken: string): Promise<void> => {
     try {
       const response = await fetch("https://api.spotify.com/v1/me", {
         headers: {
@@ -228,25 +330,35 @@ const SpotifyPomodoroPlayer: React.FC = () => {
         },
       });
 
+      if (response.status === 401) {
+        const ok = await refreshAccessToken();
+        if (ok) return getUserInfo(localStorage.getItem("access_token") || accessToken);
+      }
+
       if (!response.ok) {
         throw new Error("HTTP status " + response.status);
       }
 
-      const data = await response.json() as SpotifyUserProfile;
+      const data = (await response.json()) as SpotifyUserProfile;
       setUserInfo(data);
     } catch (err) {
       setError(`Failed to get user info: ${(err as Error).message}`);
     }
-  };
+  }, [refreshAccessToken]);
 
   // Get playback state
-  const getPlaybackState = async (accessToken: string): Promise<void> => {
+  const getPlaybackState = useCallback(async (accessToken: string): Promise<void> => {
     try {
       const response = await fetch("https://api.spotify.com/v1/me/player", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
+
+      if (response.status === 401) {
+        const ok = await refreshAccessToken();
+        if (ok) return getPlaybackState(localStorage.getItem("access_token") || accessToken);
+      }
 
       if (response.status === 204) {
         setPlaybackState({ message: "No active device found" });
@@ -257,60 +369,86 @@ const SpotifyPomodoroPlayer: React.FC = () => {
         throw new Error("HTTP status " + response.status);
       }
 
-      const data = await response.json() as SpotifyPlaybackState;
+      const data = (await response.json()) as SpotifyPlaybackState;
       setPlaybackState(data);
     } catch (err) {
       setError(`Failed to get playback state: ${(err as Error).message}`);
     }
-  };
+  }, [refreshAccessToken]);
 
   // Control playback - Play
-  const handlePlay = async (): Promise<void> => {
-    if (!token) return;
+  const handlePlay = useCallback(async (): Promise<void> => {
+    const validToken = await getValidAccessToken();
+    if (!validToken) return;
 
     try {
       programmaticChangeRef.current = true;
-      await fetch("https://api.spotify.com/v1/me/player/play", {
+      const res = await fetch("https://api.spotify.com/v1/me/player/play", {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
         },
       });
 
+      if (res.status === 401) {
+        const ok = await refreshAccessToken();
+        if (ok) {
+          const t = localStorage.getItem("access_token");
+          await fetch("https://api.spotify.com/v1/me/player/play", {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${t}` },
+          });
+        }
+      }
+
       // Refresh playback state
       setTimeout(() => {
-        getPlaybackState(token);
+        const t = localStorage.getItem("access_token");
+        if (t) getPlaybackState(t);
         programmaticChangeRef.current = false;
       }, 1000);
     } catch (err) {
       setError(`Failed to start playback: ${(err as Error).message}`);
       programmaticChangeRef.current = false;
     }
-  };
+  }, [getPlaybackState, getValidAccessToken, refreshAccessToken]);
 
   // Control playback - Pause
-  const handlePause = async (): Promise<void> => {
-    if (!token) return;
+  const handlePause = useCallback(async (): Promise<void> => {
+    const validToken = await getValidAccessToken();
+    if (!validToken) return;
 
     try {
       programmaticChangeRef.current = true;
-      await fetch("https://api.spotify.com/v1/me/player/pause", {
+      const res = await fetch("https://api.spotify.com/v1/me/player/pause", {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
         },
       });
 
+      if (res.status === 401) {
+        const ok = await refreshAccessToken();
+        if (ok) {
+          const t = localStorage.getItem("access_token");
+          await fetch("https://api.spotify.com/v1/me/player/pause", {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${t}` },
+          });
+        }
+      }
+
       // Refresh playback state
       setTimeout(() => {
-        getPlaybackState(token);
+        const t = localStorage.getItem("access_token");
+        if (t) getPlaybackState(t);
         programmaticChangeRef.current = false;
       }, 1000);
     } catch (err) {
       setError(`Failed to pause playback: ${(err as Error).message}`);
       programmaticChangeRef.current = false;
     }
-  };
+  }, [getPlaybackState, getValidAccessToken, refreshAccessToken]);
 
   // Pomodoro timer control - Start/pause timer
   const toggleTimer = (): void => {
@@ -353,7 +491,8 @@ const SpotifyPomodoroPlayer: React.FC = () => {
       // On start or resume, set start and end timestamps
       if (!intervalRef.current) {
         startTimeRef.current = Date.now();
-        endTimeRef.current = startTimeRef.current + timeLeft * 1000;
+        const seconds = timeLeftRef.current; // avoid depending on timeLeft
+        endTimeRef.current = startTimeRef.current + seconds * 1000;
       }
 
       intervalRef.current = window.setInterval(() => {
@@ -403,6 +542,8 @@ const SpotifyPomodoroPlayer: React.FC = () => {
     currentPomodoro,
     totalPomodoros,
     timerComplete,
+    handlePause,
+    handlePlay,
   ]);
 
   // Synchronize Spotify playback with Pomodoro state
@@ -414,7 +555,7 @@ const SpotifyPomodoroPlayer: React.FC = () => {
         handlePause();
       }
     }
-  }, [isWorking, isRunning, token]);
+  }, [isWorking, isRunning, token, handlePause, handlePlay]);
 
   // Visibility detection to resync timer
   useEffect(() => {
@@ -431,48 +572,69 @@ const SpotifyPomodoroPlayer: React.FC = () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [isRunning, timerComplete]);
 
-  // Get token from URL on callback
+  // Get token from URL on callback or reuse/refresh existing session on load
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
+    const init = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
 
-    if (code) {
-      // Remove code from URL to prevent re-requesting tokens on page refresh
-      window.history.replaceState({}, document.title, window.location.pathname);
+      if (code) {
+        window.history.replaceState({}, document.title, window.location.pathname);
 
-      getToken(code).then((accessToken) => {
+        const accessToken = await getToken(code);
         if (accessToken) {
-          getUserInfo(accessToken);
-          getPlaybackState(accessToken);
+          await getUserInfo(accessToken);
+          await getPlaybackState(accessToken);
         }
-      });
-    } else {
-      // Check if we have a token in localStorage
-      const storedToken = localStorage.getItem("access_token");
-      const expiresAt = localStorage.getItem("expires_at");
-
-      if (
-        storedToken &&
-        expiresAt &&
-        new Date().getTime() < parseInt(expiresAt)
-      ) {
-        setToken(storedToken);
-        getUserInfo(storedToken);
-        getPlaybackState(storedToken);
+        return;
       }
-    }
-  }, []);
+
+      const storedToken = localStorage.getItem("access_token");
+      const expiresAtStr = localStorage.getItem("expires_at");
+      const storedRefresh = localStorage.getItem("refresh_token");
+      const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : null;
+
+      if (storedToken && expiresAt && Date.now() < expiresAt) {
+        setToken(storedToken);
+        // schedule a refresh ~60s before expiry
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+          refreshTimeoutRef.current = null;
+        }
+        const delay = Math.max(5_000, expiresAt - Date.now() - 60_000);
+        refreshTimeoutRef.current = window.setTimeout(() => {
+          refreshAccessToken();
+        }, delay);
+        await getUserInfo(storedToken);
+        await getPlaybackState(storedToken);
+        return;
+      }
+
+      if (storedRefresh) {
+        const ok = await refreshAccessToken();
+        const newToken = localStorage.getItem("access_token");
+        if (ok && newToken) {
+          await getUserInfo(newToken);
+          await getPlaybackState(newToken);
+          return;
+        }
+      }
+    };
+
+    init();
+  }, [getPlaybackState, getUserInfo, refreshAccessToken, getToken]);
 
   // Refresh playback state periodically
   useEffect(() => {
     if (!token) return;
 
     const interval = setInterval(() => {
-      getPlaybackState(token);
+      const t = localStorage.getItem("access_token");
+      if (t) getPlaybackState(t);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [token]);
+  }, [token, getPlaybackState]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto bg-gradient-to-br from-gray-900 to-black rounded-xl shadow-xl my-4 text-gray-200 border border-gray-800">
@@ -532,16 +694,7 @@ const SpotifyPomodoroPlayer: React.FC = () => {
                   </div>
                   <div className="mt-4">
                     <button
-                      onClick={() => {
-                        localStorage.removeItem("access_token");
-                        localStorage.removeItem("refresh_token");
-                        localStorage.removeItem("expires_in");
-                        localStorage.removeItem("expires_at");
-                        localStorage.removeItem("code_verifier");
-                        setToken(null);
-                        setUserInfo(null);
-                        setPlaybackState(null);
-                      }}
+                      onClick={handleLogout}
                       className="bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-1 px-3 rounded-full text-sm transition-colors duration-200"
                     >
                       Disconnect
